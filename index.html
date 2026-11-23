@@ -316,6 +316,8 @@ tr.ifn-sel td { background: var(--w-brand-tint); }
 .gl-table th, .gl-table td { padding-left: 6px; padding-right: 6px; }
 .gl-table td:first-child { white-space: nowrap; }
 .gl-table .gl-key { font-weight: 700; }
+.gl-when td small { display: block; }
+@media (min-width: 900px) { .gl-when td small { display: inline; } }
 .gl-table small { font-size: 11px; font-weight: 400; color: var(--w-ink2); }
 .gl-table tr.gl-group td { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--w-ink3); padding-top: 14px; border-bottom: 0; }
 .gl details { font-size: 13px; line-height: 20px; color: var(--w-ink2); }
@@ -887,10 +889,24 @@ tr.ifn-sel td { background: var(--w-brand-tint); }
     </section>
   </div>
 
+  <section class="st-sec" id="gl-when">
+    <div class="st-sec-head">
+      <h2>When customers call Wiom, against their install slot</h2>
+      <p>Calls to Wiom between engineer assignment and installation, split by the stage Wiom’s call system records on each call. “After the slot day” means the promised day has passed and the net still isn’t set up.</p>
+    </div>
+    <div class="st-tablewrap">
+      <table class="st-table gl-table gl-when" id="tbl-gl-when" data-source="gl_when" data-row-key="period">
+        <thead><tr><th></th><th class="r">Before the slot day</th><th class="r">On the slot day</th><th class="r">Grace period</th><th class="r">After the slot day (TAT over)</th><th class="r">After cancellation</th><th class="r">Other</th><th class="r">All calls</th></tr></thead>
+        <tbody data-draw="gl_when_tbl"></tbody>
+      </table>
+    </div>
+  </section>
+
   <details>
     <summary>How these are counted</summary>
     <ul>
       <li><b>Address drop-off</b>: of customers who paid the booking fee (backend <code>booking_fee_captured</code>, as Metabase dashboard 1280), the share with no address saved after that payment. The current month leaves out today and yesterday, whose payers are still submitting.</li>
+      <li><b>When customers call</b>: the stage Wiom’s support line records on each call (<code>LAST_STAGE</code>): before the slot date, on it, within the installation grace period, after it, after the booking was cancelled, or anything else (tickets, net, plan).</li>
       <li><b>Calls to Wiom</b>: customer calls to Wiom’s support line between the engineer being assigned and installation. <b>Calls to the engineer</b>: the customer’s masked-number calls to their CSP in the same window; “didn’t pick up” = no answer.</li>
       <li>The window runs from the engineer being assigned to installation (<code>COMPANY_B_CONNECTION_BOOKING_ENRICHED</code> assigned and install times; still open if not yet installed). Calls to Wiom are distinct calls to Wiom’s support line from the customer’s number in that window: October = 5,239, the data science team’s figure exactly. Calls to the engineer read 1,817 for October here against the team’s 1,232, and 35 not picked up against 38, so those two are counted a little more widely.</li>
     </ul>
@@ -2865,11 +2881,32 @@ const glLoader = (num) => ({
     if (a && a.error) throw new Error(typeof a.error === 'string' ? a.error : (a.error.message || 'Query failed'));
     if (!a || !a.data || !Array.isArray(a.data.rows)) throw new Error('Metabase gave no rows');
     const cols = a.data.cols.map((c) => c.name);
-    return { columns: cols, rows: a.data.rows.map((r) => Object.fromEntries(cols.map((c, i) => [c, c === 'DAY' ? String(r[i]) : Number(r[i] || 0)]))) };
+    return { columns: cols, rows: a.data.rows.map((r) => Object.fromEntries(cols.map((c, i) => [c, c === 'DAY' || c === 'WHEN_CALLED' ? String(r[i]) : Number(r[i] || 0)]))) };
   },
 });
 dash.loader('goal_addr', glLoader());
 dash.loader('goal_calls', glLoader());
+dash.loader('goal_call_when', glLoader());
+const GL_WHEN = ['before_slot', 'on_slot_day', 'grace', 'after_slot', 'cancelled', 'other'];
+dash.calc('gl_when', {
+  title: 'Calls to Wiom by when they came, per month and week',
+  description: 'Calls to Wiom between engineer assignment and installation, per month (newest first) then per Monday-to-Sunday week (last 10, only weeks with a full day), counted by when they came against the install slot; today is left out.',
+  inputs: ['goal_call_when'],
+  fn: (when) => {
+    const today = glToday();
+    const rows = when.filter((r) => r.DAY < today);
+    const wk = (d) => { const t = Date.parse(d + 'T00:00:00Z'); const dow = (new Date(t).getUTCDay() + 6) % 7; return new Date(t - dow * 86400000).toISOString().slice(0, 10); };
+    const sum = (list, kind, period) => {
+      const o = { kind, period, partial: kind === 'month' ? period === today.slice(0, 7) : glAddDays(period, 6) >= today };
+      for (const k of GL_WHEN) o[k] = d3.sum(list.filter((r) => r.WHEN_CALLED === k), (r) => r.CALLS);
+      o.total = d3.sum(list, (r) => r.CALLS);
+      return o;
+    };
+    const months = [...new Set(rows.map((r) => r.DAY.slice(0, 7)))].sort().reverse().map((m) => sum(rows.filter((r) => r.DAY.startsWith(m)), 'month', m));
+    const weeks = [...new Set(rows.map((r) => wk(r.DAY)))].sort().reverse().slice(0, 10).map((w) => sum(rows.filter((r) => wk(r.DAY) === w), 'week', w));
+    return [...months, ...weeks];
+  },
+});
 
 // One row per month: payers, drop-off (settled days only for the current month), calls and projection.
 dash.calc('gl_months', {
@@ -2999,6 +3036,18 @@ const glRows = (tbody, months, weeks, cells) => {
     cells(tr, r, 'week'); tbody.append(tr);
   }
 };
+dash.draw('gl_when_tbl', (tbody) => {
+  const all = glData('gl_when');
+  if (!all.length) { tbody.replaceChildren(); const tr = document.createElement('tr'); const c = glTd(tr, null, dash.data('gl_when').status === 'error' ? 'Couldn’t load calls.' : 'Loading…'); c.colSpan = 8; tbody.append(tr); return; }
+  const months = all.filter((r) => r.kind === 'month'), weeks = all.filter((r) => r.kind === 'week');
+  glRows(tbody, months.map((r) => ({ ...r, month: r.period, current: r.partial })), weeks.map((r) => ({ ...r, week: r.period })), (tr, r) => {
+    for (const k of GL_WHEN) {
+      const c = glTd(tr, 'r st-num' + (k === 'after_slot' || k === 'on_slot_day' ? ' gl-key' : ''), glN(r[k]));
+      const sm = document.createElement('small'); sm.textContent = ` ${r.total ? Math.round(r[k] / r.total * 100) : 0}%`; c.append(sm);
+    }
+    glTd(tr, 'r st-num', glN(r.total));
+  });
+});
 dash.draw('gl_addr_tbl', (tbody) => glRows(tbody, glData('gl_months'), glData('gl_weeks'), (tr, r) => {
   glTd(tr, 'r st-num', glN(r.paid));
   glTd(tr, 'r st-num', r.no_address == null ? glN(Math.round(r.paid * (r.dropoff || 0))) : glN(r.no_address));

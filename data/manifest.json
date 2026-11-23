@@ -28,6 +28,7 @@
   "pay_daily|booking_since=2026-11-04|since=2026-11-16": "pay_daily-e0fdd9bfa3.json",
   "pay_daily|booking_since=2026-11-04|since=2026-11-09": "pay_daily-2be5eaf95d.json",
   "pay_daily|booking_since=2026-11-04|since=2026-10-24": "pay_daily-945e01db72.json",
-  "reach|st_since=2026-11-17|survey_release=2026-11-17|tv_release=2026-11-17": "reach-af44cbb43e.json"
+  "reach|st_since=2026-11-17|survey_release=2026-11-17|tv_release=2026-11-17": "reach-af44cbb43e.json",
+  "goal_call_when|": "goal_call_when-7443bcb969.json"
  }
 }
