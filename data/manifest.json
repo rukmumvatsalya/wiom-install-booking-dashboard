@@ -1,1 +1,33 @@
-{"generated_at": null, "files": {}}
+{
+ "generated_at": "2026-11-23T12:06:43.981Z",
+ "files": {
+  "booking_events|booking_since=2026-11-04": "booking_events-35ef665b15.json",
+  "builds|st_since=2026-11-17": "builds-fbd1f1678b.json",
+  "feature_events|st_since=2026-11-17|survey_release=2026-11-17|tv_release=2026-11-17": "feature_events-ed08873efa.json",
+  "freshness|": "freshness-7803a2860e.json",
+  "funnel_daily|days=1|since=2026-11-13": "funnel_daily-1c1f5be9d2.json",
+  "funnel_daily|days=1|since=2026-11-16": "funnel_daily-ba1eed33ea.json",
+  "funnel_daily|days=1|since=2026-11-09": "funnel_daily-dfb842d17f.json",
+  "funnel_daily|days=1|since=2026-10-24": "funnel_daily-61c677e649.json",
+  "funnel_daily|days=3|since=2026-11-13": "funnel_daily-79537b89b8.json",
+  "funnel_daily|days=3|since=2026-11-16": "funnel_daily-f026241ed0.json",
+  "funnel_daily|days=3|since=2026-11-09": "funnel_daily-b2fcda01f4.json",
+  "funnel_daily|days=3|since=2026-10-24": "funnel_daily-c6ef9094ad.json",
+  "funnel_daily|days=7|since=2026-11-13": "funnel_daily-b4111fc0c2.json",
+  "funnel_daily|days=7|since=2026-11-16": "funnel_daily-b5e55138ed.json",
+  "funnel_daily|days=7|since=2026-11-09": "funnel_daily-5adbdd1158.json",
+  "funnel_daily|days=7|since=2026-10-24": "funnel_daily-bfa6890da4.json",
+  "funnel_daily|days=14|since=2026-11-13": "funnel_daily-40369ee8f8.json",
+  "funnel_daily|days=14|since=2026-11-16": "funnel_daily-758cd50675.json",
+  "funnel_daily|days=14|since=2026-11-09": "funnel_daily-b75ee5bd9c.json",
+  "funnel_daily|days=14|since=2026-10-24": "funnel_daily-ea7fabcbe5.json",
+  "fw_pb|": "fw_pb-752db96678.json",
+  "goal_addr|": "goal_addr-b9244c5769.json",
+  "goal_calls|": "goal_calls-007540f6f5.json",
+  "pay_daily|booking_since=2026-11-04|since=2026-11-13": "pay_daily-c3bf1423b9.json",
+  "pay_daily|booking_since=2026-11-04|since=2026-11-16": "pay_daily-e0fdd9bfa3.json",
+  "pay_daily|booking_since=2026-11-04|since=2026-11-09": "pay_daily-2be5eaf95d.json",
+  "pay_daily|booking_since=2026-11-04|since=2026-10-24": "pay_daily-945e01db72.json",
+  "reach|st_since=2026-11-17|survey_release=2026-11-17|tv_release=2026-11-17": "reach-af44cbb43e.json"
+ }
+}
