@@ -23,6 +23,11 @@ imgs = {os.path.basename(p).split('_')[0]: os.path.basename(p) for p in glob.glo
 page = re.sub(r'"(s\d+[a-z]?)": "/_blob/[0-9a-f]{32}"', lambda m: f'"{m.group(1)}": "img/{imgs[m.group(1)]}"', page)
 assert '/_blob/' not in page, 'an image is not mapped'
 page = page.replace("' · Every open fetches fresh numbers.'", "' · Daily snapshot, refreshed every day at 4:00 am IST.'")
+# Every "today" in the page (quick ranges, complete-day cut-offs, call windows) is the snapshot's date, not the viewer's clock.
+n_today = page.count('Date.now() + 5.5 * 3600000')
+assert n_today >= 1, 'the page no longer computes an IST today the way build.py expects'
+page = page.replace('Date.now() + 5.5 * 3600000', 'window.DASH_TODAY_MS')
+print('today helpers patched:', n_today)
 page = re.sub(r'<script>(.*?)</script>', lambda m: '<script>\n(() => {\n' + m.group(1) + '\n})();\n</script>', page, flags=re.S)
 
 shell = f'''<!doctype html>
@@ -41,6 +46,7 @@ shell = f'''<!doctype html>
   @media (max-width: 520px) {{ #dash-root {{ padding: 8px; }} }}
 </style>
 <script>window.DASH_DEFAULT_PARAMS = {json.dumps(cfg["defaults"])};</script>
+<script src="data/today.js"></script>
 <script src="scripts/dash-static.js"></script>
 </head>
 <body>

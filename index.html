@@ -13,7 +13,8 @@
   #dash-root { max-width: 1400px; margin: 0 auto; padding: 16px; box-sizing: border-box; font-family: "Noto Sans", "Noto Sans Devanagari", system-ui, sans-serif; }
   @media (max-width: 520px) { #dash-root { padding: 8px; } }
 </style>
-<script>window.DASH_DEFAULT_PARAMS = {"booking_since": "2026-11-04", "days": "1", "dir": "up", "fw_days": "14", "gm": "install", "seg": "new", "shot": "", "since": "2026-11-13", "st_since": "2026-11-17", "survey_release": "2026-11-17", "tab": "goals", "tv_release": "2026-11-17", "ver": "all"};</script>
+<script>window.DASH_DEFAULT_PARAMS = {"booking_since": "2026-11-04", "days": "1", "dir": "up", "fw_days": "14", "gm": "install", "seg": "new", "shot": "", "since": {"daysAgo": 7}, "st_since": "2026-11-17", "survey_release": "2026-11-17", "tab": "goals", "tv_release": "2026-11-17", "ver": "all"};</script>
+<script src="data/today.js"></script>
 <script src="scripts/dash-static.js"></script>
 </head>
 <body>
@@ -1197,7 +1198,7 @@ dash.calc('earlier', {
   inputs: ['pay_daily'],
   fn: (pay_daily) => {
     const since = dash.params().since || '';
-    const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const today = new Date(window.DASH_TODAY_MS).toISOString().slice(0, 10);
     const rows = pay_daily.filter((r) => r.ARM !== '__BOOKED_ALL' && r.INST === 'earlier' && r.DAY >= since && r.DAY < today);
     return [{ paid: d3.sum(rows, (r) => r.PAID), booked: d3.sum(rows, (r) => r.BOOKED_EVER),
       from: d3.min(rows, (r) => r.DAY) || null, to: d3.max(rows, (r) => r.DAY) || null }];
@@ -1368,7 +1369,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft' && i > 0) dash.setParams({ shot: O[i - 1].id });
 });
 // Quick range: sets "Installed from" to N days before today (IST).
-const daysAgo = (n) => { const t = new Date(Date.now() + 5.5 * 3600000 - n * 86400000); return t.toISOString().slice(0, 10); };
+const daysAgo = (n) => { const t = new Date(window.DASH_TODAY_MS - n * 86400000); return t.toISOString().slice(0, 10); };
 window.IFN.daysAgo = daysAgo;
 document.querySelectorAll('.ifn-seg button[data-back]').forEach((b) => b.addEventListener('click', () => dash.setParams({ since: daysAgo(Number(b.dataset.back)) })));
 document.querySelectorAll('.ifn-seg button[data-gm]').forEach((b) => b.addEventListener('click', () => dash.setParams({ gm: b.dataset.gm })));
@@ -2526,7 +2527,7 @@ dash.calc('st_pay_daily', {
     const last = d3.max(pay_daily, (r) => r.DAY);
     const lastT = last ? Date.parse(last) : 0;
     const pc = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
-    const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const today = new Date(window.DASH_TODAY_MS).toISOString().slice(0, 10);
     return Array.from(d3.group(pay_daily, (r) => r.DAY), ([day, rs0]) => {
       let rs = rs0;
       const ba = rs.find((r) => r.ARM === '__BOOKED_ALL');
@@ -2611,7 +2612,7 @@ const fwPct = (a, b) => (b ? `${(a / b * 100).toFixed(0)}%` : '—');
 const fwRs = (v) => `₹${fwN(Math.round(v))}`;
 const fwT = (s) => (s ? Date.parse(String(s).replace(' ', 'T') + ':00Z') : null);
 const fwMin = (a, b) => (a && b ? (fwT(b) - fwT(a)) / 60000 : null);
-const fwToday = () => new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+const fwToday = () => new Date(window.DASH_TODAY_MS).toISOString().slice(0, 10);
 const fwDays = () => { const n = Number(dash.params().fw_days); return [7, 14, 30, 45].includes(n) ? n : 14; };
 // "Since start" (45) reads every lead the dataset holds: everything since the project began on 29 Oct 2026.
 const fwFrom = () => { const t = Date.parse(fwToday() + 'T00:00:00Z') - (fwDays() - 1) * 86400000; return new Date(t).toISOString().slice(0, 10); };
@@ -2864,7 +2865,7 @@ dash.draw('fw_daily', (tbody) => {
 {
 // Goals tab: address drop-off after payment, and calls to Wiom between engineer assignment and install.
 const glN = d3.format(',');
-const glToday = () => new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+const glToday = () => new Date(window.DASH_TODAY_MS).toISOString().slice(0, 10);
 const glAddDays = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const glMonthName = (m) => d3.utcFormat('%B %Y')(d3.utcParse('%Y-%m')(m));
 const glData = (id) => { const d = dash.data(id); return d.status === 'ok' && d.data ? d.data : []; };

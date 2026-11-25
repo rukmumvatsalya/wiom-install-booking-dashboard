@@ -9,13 +9,16 @@ if (!KEY) { console.error('METABASE_API_KEY is not set'); process.exit(1); }
 
 const queries = JSON.parse(readFileSync('queries.json', 'utf8'));
 const cfg = JSON.parse(readFileSync('params.json', 'utf8'));
-const daysAgo = (n) => new Date(Date.now() + 5.5 * 3600000 - n * 86400000).toISOString().slice(0, 10);
+// "Today" is the snapshot's date in IST; the page reads it from data/today.js so its relative dates match these.
+const TODAY = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+const daysAgo = (n) => new Date(Date.parse(TODAY + 'T12:00:00Z') - n * 86400000).toISOString().slice(0, 10);
+const resolve = (x) => (x && typeof x === 'object' && x.daysAgo != null ? daysAgo(x.daysAgo) : x);
 
-// Every value each filter can take in the snapshot: the saved default plus the page's quick buttons.
+// Every value each filter can take in the snapshot: the default (fixed or relative) plus the page's quick buttons.
 const choices = {};
-for (const [k, v] of Object.entries(cfg.defaults)) choices[k] = [v];
+for (const [k, v] of Object.entries(cfg.defaults)) choices[k] = [resolve(v)];
 for (const [k, list] of Object.entries(cfg.variants || {})) {
-  choices[k] = [...new Set([cfg.defaults[k], ...list.map((x) => (typeof x === 'object' && x.daysAgo != null ? daysAgo(x.daysAgo) : x))])];
+  choices[k] = [...new Set([resolve(cfg.defaults[k]), ...list.map(resolve)])];
 }
 const combos = (names) => names.reduce((acc, n) => acc.flatMap((c) => choices[n].map((v) => ({ ...c, [n]: v }))), [{}]);
 
@@ -32,6 +35,7 @@ const run = async (sql) => {
 };
 
 mkdirSync('data', { recursive: true });
+writeFileSync('data/today.js', `window.DASH_SNAPSHOT_DATE = ${JSON.stringify(TODAY)};\n`);
 const files = {};
 let failed = 0;
 for (const [id, q] of Object.entries(queries)) {

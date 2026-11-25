@@ -5,7 +5,13 @@
   const store = {};          // dataset key -> {status, data, columns, message, truncated, meta}
   let manifest = null, queries = null, gen = 0, calcMemo = {}, scheduled = false;
 
-  const DEFAULT_PARAMS = window.DASH_DEFAULT_PARAMS || {};
+  // "Today" is the date the snapshot was taken (data/today.js), so relative dates resolve to files that exist.
+  const TODAY = window.DASH_SNAPSHOT_DATE || new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+  window.DASH_TODAY_MS = Date.parse(TODAY + 'T12:00:00Z');
+  const daysAgo = (n) => new Date(window.DASH_TODAY_MS - n * 86400000).toISOString().slice(0, 10);
+  const RAW_DEFAULTS = window.DASH_DEFAULT_PARAMS || {};
+  const isRelative = (v) => v && typeof v === 'object' && v.daysAgo != null;
+  const DEFAULT_PARAMS = Object.fromEntries(Object.entries(RAW_DEFAULTS).map(([k, v]) => [k, isRelative(v) ? daysAgo(v.daysAgo) : v]));
   const PARAM_KEY = 'wiom-ibf-params';
   let params = { ...DEFAULT_PARAMS };
   try { Object.assign(params, JSON.parse(localStorage.getItem(PARAM_KEY) || '{}')); } catch (e) { /* storage blocked */ }
@@ -29,6 +35,9 @@
     store[key] = { status: 'loading', data: [] };
     const file = manifest.files[key];
     if (!file) {
+      // A remembered date can go stale once the snapshot moves on: fall back to that filter's rolling default.
+      const stale = queries[id].params.filter((n) => isRelative(RAW_DEFAULTS[n]) && params[n] !== DEFAULT_PARAMS[n]);
+      if (stale.length) { delete store[key]; window.dash.setParams(Object.fromEntries(stale.map((n) => [n, DEFAULT_PARAMS[n]]))); return; }
       store[key] = { status: 'error', data: [], message: 'This filter isn’t in the daily snapshot. Pick the default, or open the live dashboard in Claude.' };
       schedule();
       return;
