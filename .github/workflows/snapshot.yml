@@ -1,0 +1,27 @@
+name: Daily snapshot
+on:
+  schedule:
+    - cron: '30 22 * * *'   # 22:30 UTC = 4:00 am IST
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run every query on Metabase
+        env:
+          METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
+        run: node scripts/snapshot.mjs
+      - name: Publish the new numbers
+        run: |
+          git config user.name "snapshot-bot"
+          git config user.email "snapshot-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "Daily snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
