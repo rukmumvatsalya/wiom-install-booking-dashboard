@@ -1,1 +1,1 @@
-{"status":"completed","data":{"cols":[{"name":"FETCHED"},{"name":"APP_UP_TO"},{"name":"APP_LOADED"},{"name":"PAY_UP_TO"},{"name":"FW_UP_TO"}],"rows":[["2026-11-25 14:17","2026-11-24 23:59:59","2026-11-25 06:11","2026-11-25 14:07","2026-11-25 14:00"]],"rows_truncated":false}}
+{"status":"completed","data":{"cols":[{"name":"FETCHED"},{"name":"APP_UP_TO"},{"name":"APP_LOADED"},{"name":"PAY_UP_TO"},{"name":"FW_UP_TO"}],"rows":[["2026-11-26 09:48","2026-11-25 23:59:59","2026-11-26 06:15","2026-11-26 09:37","2026-11-25 23:00"]],"rows_truncated":false}}
