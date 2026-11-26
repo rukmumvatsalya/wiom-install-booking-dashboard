@@ -327,6 +327,25 @@ tr.ifn-sel td { background: var(--w-brand-tint); }
 .gl-goal .st-big-num { font-size: 40px; line-height: 44px; }
 .gl-link { font-size: 13px; font-weight: 600; color: var(--w-brand) !important; }
 .gl-link:hover { text-decoration: underline !important; }
+.gl-rel { display: grid; gap: 10px; margin-top: 4px; padding: 14px; border-radius: 12px; background: var(--w-bg); border: 1px solid var(--w-border); }
+.gl-rel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gl-rel-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--w-brand); }
+.gl-rel-name { margin: 0; font-size: 15px; line-height: 21px; font-weight: 700; }
+.gl-rel-name a { color: var(--w-ink); text-decoration: none; }
+.gl-rel-name a:hover { text-decoration: underline; }
+.gl-rel-date { margin: -6px 0 0; font-size: 13px; line-height: 18px; color: var(--w-ink2); }
+.gl-rel-hero { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--w-subtle); }
+.gl-rel-hero.up { background: var(--w-pos-tint); }
+.gl-rel-hero b { font-size: 24px; line-height: 30px; font-weight: 700; }
+.gl-rel-hero.up b { color: var(--w-pos); }
+.gl-rel-hero span { font-size: 13px; line-height: 18px; color: var(--w-ink2); }
+.gl-rel-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.gl-rel-tile { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--w-card); border: 1px solid var(--w-border); min-width: 0; }
+.gl-rel-tile.new { border-color: var(--w-brand); }
+.gl-rel-tile span { font-size: 12px; font-weight: 600; color: var(--w-ink2); }
+.gl-rel-tile b { font-size: 20px; line-height: 26px; }
+.gl-rel-tile small { font-size: 12px; color: var(--w-ink2); }
+.gl-rel-note { margin: 0; font-size: 12px; line-height: 17px; color: var(--w-ink2); }
 .fw-ideas { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; line-height: 21px; color: var(--w-ink2); max-width: 90ch; }
 .fw-ideas li::marker { color: var(--w-brand); font-weight: 700; }
 .fw-ideas b { color: var(--w-ink); font-weight: 700; }
@@ -855,7 +874,7 @@ tr.ifn-sel td { background: var(--w-brand-tint); }
   <header class="st-head">
     <p class="st-eyebrow">Booking to install · goals</p>
     <h1 class="st-title">Our two goals</h1>
-    <p class="st-lede">No customer who has paid should drop off before submitting their address, and calls to Wiom after an engineer is assigned should fall from 5,239 a month to 2,000.</p>
+    <p class="st-lede">98.5% of customers who pay the booking fee should submit their address (October: 94.8%), and calls to Wiom after an engineer is assigned should fall from 5,239 a month to 2,000. Under each goal: the feature we shipped for it, the day it went live, and what changed since.</p>
   </header>
 
   <div class="gl-goals">
@@ -2871,7 +2890,7 @@ const glMonthName = (m) => d3.utcFormat('%B %Y')(d3.utcParse('%Y-%m')(m));
 const glData = (id) => { const d = dash.data(id); return d.status === 'ok' && d.data ? d.data : []; };
 const glPct = (v, dp = 1) => (v == null || !isFinite(v) ? '—' : `${(v * 100).toFixed(dp)}%`);
 const glSigned = (v) => (v == null || !isFinite(v) ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v * 100).toFixed(0)}%`);
-const GL_BASE = { month: '2026-10', ds_calls: 5239, ds_csp: 1232, ds_missed: 38, target_calls: 2000 };
+const GL_BASE = { month: '2026-10', ds_calls: 5239, ds_csp: 1232, ds_missed: 38, target_calls: 2000, addr_goal: 0.985 };
 const glTd = (tr, cls, t) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = t; tr.append(c); return c; };
 
 const glLoader = (num) => ({
@@ -2882,7 +2901,7 @@ const glLoader = (num) => ({
     if (a && a.error) throw new Error(typeof a.error === 'string' ? a.error : (a.error.message || 'Query failed'));
     if (!a || !a.data || !Array.isArray(a.data.rows)) throw new Error('Metabase gave no rows');
     const cols = a.data.cols.map((c) => c.name);
-    return { columns: cols, rows: a.data.rows.map((r) => Object.fromEntries(cols.map((c, i) => [c, c === 'DAY' || c === 'WHEN_CALLED' ? String(r[i]) : Number(r[i] || 0)]))) };
+    return { columns: cols, rows: a.data.rows.map((r) => Object.fromEntries(cols.map((c, i) => [c, c === 'DAY' || c === 'WHEN_CALLED' || c === 'ARM' ? String(r[i]) : Number(r[i] || 0)]))) };
   },
 });
 dash.loader('goal_addr', glLoader());
@@ -2940,12 +2959,40 @@ dash.calc('gl_months', {
 });
 dash.calc('gl_addr_month', {
   title: 'Goal 1: address drop-off after payment, now vs October',
-  description: 'This month’s address drop-off (payers up to the day before yesterday) against October, with the goal of 0%.',
+  description: 'This month’s share of booking-fee payers who submitted their address (payers up to the day before yesterday) against October, with the goal of 98.5%.',
   inputs: ['gl_months'],
   fn: (months) => {
     const cur = months.find((r) => r.current) || months[0];
     const oct = months.find((r) => r.month === GL_BASE.month);
-    return cur ? [{ month: cur.month, dropoff: cur.dropoff, paid: cur.paid, no_address: cur.no_address, oct_dropoff: oct ? oct.dropoff : null, goal: 0 }] : [];
+    return cur ? [{ month: cur.month, dropoff: cur.dropoff, paid: cur.paid, no_address: cur.no_address, oct_dropoff: oct ? oct.dropoff : null, submitted: cur.dropoff == null ? null : 1 - cur.dropoff, oct_submitted: oct && oct.dropoff != null ? 1 - oct.dropoff : null, goal: GL_BASE.addr_goal }] : [];
+  },
+});
+// Goal 1's feature: GROW-169 (J6, pay -> address -> date). Release = first day a J6 payer appears.
+// Settled payers only (up to the day before yesterday), as the goal card. Before = the same number of days just before release.
+dash.calc('gl_addr_release', {
+  title: 'Goal 1 feature: J6 booking (GROW-169), before and since release',
+  description: 'Release day of J6 (first J6 booking-fee payer), then for payers up to the day before yesterday: J6 against J5 on the same days, and all payers since release against the same number of days just before it. Rate = share who submitted their address.',
+  inputs: ['goal_addr'],
+  fn: (addr) => {
+    const j6days = addr.filter((r) => r.ARM === 'J6' && r.PAID > 0).map((r) => r.DAY).sort();
+    if (!j6days.length) return [];
+    const release = j6days[0], settled = glAddDays(glToday(), -1);
+    const since = addr.filter((r) => r.DAY >= release && r.DAY < settled);
+    const n = new Set(since.map((r) => r.DAY)).size;
+    if (!n) return [{ release, days: 0 }];
+    const before = addr.filter((r) => r.DAY >= glAddDays(release, -n) && r.DAY < release);
+    const agg = (rows) => { const paid = d3.sum(rows, (r) => r.PAID), got = d3.sum(rows, (r) => r.ADDRESS_EVER); return { paid, miss: paid - got, rate: paid ? got / paid : null }; };
+    const j6 = agg(since.filter((r) => r.ARM === 'J6')), j5 = agg(since.filter((r) => r.ARM === 'J5'));
+    const all = agg(since), pre = agg(before);
+    const drop = (a) => (a.rate == null ? null : 1 - a.rate);
+    return [{ release, days: n, last_day: glAddDays(settled, -1), before_from: glAddDays(release, -n),
+      j6_paid: j6.paid, j6_rate: j6.rate, j6_miss: j6.miss, j5_paid: j5.paid, j5_rate: j5.rate, j5_miss: j5.miss,
+      j6_vs_j5_pts: j6.rate != null && j5.rate != null ? j6.rate - j5.rate : null,
+      j6_vs_j5_drop: drop(j5) ? drop(j6) / drop(j5) - 1 : null,
+      all_rate: all.rate, all_paid: all.paid, before_rate: pre.rate, before_paid: pre.paid,
+      all_vs_before_pts: all.rate != null && pre.rate != null ? all.rate - pre.rate : null,
+      all_vs_before_drop: drop(pre) ? drop(all) / drop(pre) - 1 : null,
+      j6_share: all.paid ? j6.paid / all.paid : null }];
   },
 });
 dash.calc('gl_calls_month', {
@@ -2996,17 +3043,60 @@ const glCard = (box, o) => {
 dash.draw('gl_addr', (box) => {
   const r = glData('gl_addr_month')[0];
   if (!r) { box.textContent = dash.data('gl_addr_month').status === 'error' ? 'Couldn’t load payments.' : 'Loading…'; return; }
-  const start = r.oct_dropoff || r.dropoff || 0;
-  const done = start ? Math.max(0, (start - r.dropoff) / start) : 0;
+  const start = r.oct_submitted != null ? r.oct_submitted : r.submitted;
+  const done = r.goal > start ? Math.max(0, (r.submitted - start) / (r.goal - start)) : 0;
+  const ok = r.submitted >= r.goal;
+  const goalDrop = 1 - r.goal;
   glCard(box, {
-    id: 'Goal 1', pill: r.dropoff <= 0.005 ? 'ok' : 'wait', pillText: r.dropoff <= 0.005 ? 'On goal' : 'In progress',
-    title: 'Address drop-off after payment', what: 'Customers who paid the booking fee but never submitted their address.',
-    big: glPct(r.dropoff), bigLbl: `${glMonthName(r.month)} so far · goal 0%`, done,
-    capL: `October ${glPct(r.oct_dropoff)}`, capR: 'Goal 0%',
-    meta: [['Paid this month', glN(r.paid)], ['No address yet', glN(r.no_address)], ['Closed from October', glPct(done, 0)]],
+    id: 'Goal 1', pill: ok ? 'ok' : 'wait', pillText: ok ? 'On goal' : 'In progress',
+    title: 'Address submitted after payment', what: 'Share of customers who paid the booking fee and then submitted their address.',
+    big: glPct(r.submitted), bigLbl: `${glMonthName(r.month)} so far · goal ${glPct(r.goal)}`, done,
+    capL: `October ${glPct(r.oct_submitted)}`, capR: `Goal ${glPct(r.goal)}`,
+    meta: [['Paid this month', glN(r.paid)], ['No address yet', `${glN(r.no_address)} (${glPct(r.dropoff)})`],
+      ['Goal in drop-off', `${glPct(goalDrop)}, ${glSigned(r.oct_dropoff ? goalDrop / r.oct_dropoff - 1 : null)} vs October’s ${glPct(r.oct_dropoff)}`],
+      ['Way to goal covered since October', glPct(done, 0)]],
     link: ['See the Futwork calls that recover them →', 'futwork'],
   });
+  box.insertBefore(glRelease(), box.querySelector('.gl-link'));
 });
+// "Feature released" block inside the Goal 1 card.
+const glRelease = () => {
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const wrap = el('div', 'gl-rel');
+  const f = d3.utcFormat('%-d %b %Y'), fs = d3.utcFormat('%-d %b'), p = d3.utcParse('%Y-%m-%d');
+  const head = el('div', 'gl-rel-head');
+  head.append(el('span', 'gl-rel-eyebrow', 'Feature released for this goal'), el('span', 'st-pill live', 'Live · rolling out'));
+  wrap.append(head);
+  const name = el('p', 'gl-rel-name');
+  const a = el('a', null, 'GROW-169 · J6 booking: pay → address → date'); a.href = 'https://linear.app/wiom-reset/issue/GROW-169/get-customers-who-paid-the-booking-fee-to-booking-confirmed-new-pay'; a.target = '_blank'; a.rel = 'noopener';
+  name.append(a); wrap.append(name);
+  const d = glData('gl_addr_release')[0];
+  if (!d) { wrap.append(el('p', 'gl-rel-note', dash.data('gl_addr_release').status === 'error' ? 'Couldn’t load the release numbers.' : 'Loading…')); return wrap; }
+  wrap.append(el('p', 'gl-rel-date', `Released ${f(p(d.release))} (first J6 payment, app build 2026_11_18)${d.days ? ` · ${d.days} full days of payers since` : ''}`));
+  if (!d.days) { wrap.append(el('p', 'gl-rel-note', 'No settled payers since release yet.')); return wrap; }
+  const better = d.j6_vs_j5_pts != null && d.j6_vs_j5_pts > 0;
+  const hero = el('div', `gl-rel-hero${better ? ' up' : ''}`);
+  hero.append(el('b', 'st-num', d.j6_vs_j5_drop == null ? '—' : `${glSigned(d.j6_vs_j5_drop)} drop-off`),
+    el('span', null, `J6 payers who never submitted an address, against J5 payers on the same days (${fs(p(d.release))}–${fs(p(d.last_day))}). ${d.j6_vs_j5_pts == null ? '' : `${d.j6_vs_j5_pts >= 0 ? '+' : '−'}${Math.abs(d.j6_vs_j5_pts * 100).toFixed(1)} pts address submitted.`}`));
+  wrap.append(hero);
+  const tiles = el('div', 'gl-rel-tiles');
+  const tile = (k, v, sub, cls) => { const t = el('div', cls ? `gl-rel-tile ${cls}` : 'gl-rel-tile'); t.append(el('span', null, k), el('b', 'st-num', v), el('small', null, sub)); tiles.append(t); };
+  tile('J6 (new flow)', glPct(d.j6_rate), `${glN(d.j6_paid)} paid · ${glN(d.j6_miss)} no address`, 'new');
+  tile('J5 (old flow), same days', glPct(d.j5_rate), `${glN(d.j5_paid)} paid · ${glN(d.j5_miss)} no address`);
+  wrap.append(tiles);
+  const meta = el('dl', 'st-meta');
+  const row = (k, v) => meta.append(el('dt', null, k), el('dd', 'st-num', v));
+  row(`All payers, ${d.days} days before release`, `${glPct(d.before_rate)} of ${glN(d.before_paid)}`);
+  row(`All payers since release`, `${glPct(d.all_rate)} of ${glN(d.all_paid)}`);
+  row('Change for all payers', d.all_vs_before_pts == null ? '—' : `${d.all_vs_before_pts >= 0 ? '+' : '−'}${Math.abs(d.all_vs_before_pts * 100).toFixed(1)} pts · ${glSigned(d.all_vs_before_drop)} drop-off`);
+  row('Payers on J6 so far', glPct(d.j6_share, 0));
+  wrap.append(meta);
+  wrap.append(el('p', 'gl-rel-note', `Read J6 against J5: both run on the same days, so the comparison is fair. The all-payer change stays small while only ${glPct(d.j6_share, 0)} of payers get J6, and grows as the rollout widens. Address counted any time after payment; the last two days are left out while those payers are still submitting.`));
+  const more = el('a', 'gl-link', 'See J6 screen by screen in Features shipped →'); more.href = '#';
+  more.addEventListener('click', (e) => { e.preventDefault(); dash.setParams({ tab: 'features' }); setTimeout(() => { const t = document.getElementById('sec-j6'); if (t) t.scrollIntoView({ behavior: 'smooth' }); }, 60); });
+  wrap.append(more);
+  return wrap;
+};
 dash.draw('gl_calls', (box) => {
   const r = glData('gl_calls_month')[0];
   if (!r) { box.textContent = dash.data('gl_calls_month').status === 'error' ? 'Couldn’t load calls.' : 'Loading…'; return; }
