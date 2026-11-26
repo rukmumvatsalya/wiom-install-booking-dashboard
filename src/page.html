@@ -3041,7 +3041,7 @@ const glRelease = () => {
   const row = (k, v) => meta.append(el('dt', null, k), el('dd', 'st-num', v));
   row(`All payers, ${d.days} days before release`, `${glPct(d.before_rate)} of ${glN(d.before_paid)}`);
   row(`All payers since release`, `${glPct(d.all_rate)} of ${glN(d.all_paid)}`);
-  row('Change for all payers', d.all_vs_before_pts == null ? '—' : `${d.all_vs_before_pts >= 0 ? '+' : '−'}${Math.abs(d.all_vs_before_pts * 100).toFixed(1)} pts · ${glSigned(d.all_vs_before_drop)} drop-off`);
+  row('Change for all payers', d.all_vs_before_pts == null ? '—' : `${Math.abs(d.all_vs_before_pts) < 0.0005 ? '' : d.all_vs_before_pts > 0 ? '+' : '−'}${Math.abs(d.all_vs_before_pts * 100).toFixed(1)} pts · ${glSigned(d.all_vs_before_drop)} drop-off`);
   row('Payers on J6 so far', glPct(d.j6_share, 0));
   wrap.append(meta);
   wrap.append(el('p', 'gl-rel-note', `Read J6 against J5: both run on the same days, so the comparison is fair. The all-payer change stays small while only ${glPct(d.j6_share, 0)} of payers get J6, and grows as the rollout widens. Address counted any time after payment; the last two days are left out while those payers are still submitting.`));
