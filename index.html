@@ -339,7 +339,15 @@ tr.ifn-sel td { background: var(--w-brand-tint); }
 .gl-rel-hero b { font-size: 24px; line-height: 30px; font-weight: 700; }
 .gl-rel-hero.up b { color: var(--w-pos); }
 .gl-rel-hero span { font-size: 13px; line-height: 18px; color: var(--w-ink2); }
-.gl-rel-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.gl-rel-tiles { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 8px; }
+.gl-rel-arrow { align-self: center; font-size: 18px; color: var(--w-ink3); }
+.gl-rel-tile.new b { color: var(--w-pos); }
+.gl-rel-chart { position: relative; display: grid; gap: 6px; }
+.gl-rel-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gl-rel-chart .axis text { fill: var(--w-ink2); font-size: 11px; font-family: var(--w-font); }
+.gl-rel-chart .axis path, .gl-rel-chart .axis line { stroke: var(--w-border2); }
+.gl-rel-chart .grid line { stroke: var(--w-border); }
+.gl-rel-chart-title { margin: 0; font-size: 13px; font-weight: 700; }
 .gl-rel-tile { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--w-card); border: 1px solid var(--w-border); min-width: 0; }
 .gl-rel-tile.new { border-color: var(--w-brand); }
 .gl-rel-tile span { font-size: 12px; font-weight: 600; color: var(--w-ink2); }
@@ -2995,6 +3003,26 @@ dash.calc('gl_addr_release', {
       j6_share: all.paid ? j6.paid / all.paid : null }];
   },
 });
+dash.calc('gl_addr_release_daily', {
+  title: 'Goal 1 feature: address drop-off per pay day, around the J6 release',
+  description: 'Per IST pay day, from the same number of days before release up to the day before yesterday: share of booking-fee payers who never submitted an address, for all payers, J5 and J6 (J6 only on days with at least 10 J6 payers).',
+  inputs: ['goal_addr'],
+  fn: (addr) => {
+    const j6days = addr.filter((r) => r.ARM === 'J6' && r.PAID > 0).map((r) => r.DAY).sort();
+    if (!j6days.length) return [];
+    const release = j6days[0], settled = glAddDays(glToday(), -1);
+    const n = new Set(addr.filter((r) => r.DAY >= release && r.DAY < settled).map((r) => r.DAY)).size;
+    if (!n) return [];
+    const from = glAddDays(release, -n);
+    const rows = addr.filter((r) => r.DAY >= from && r.DAY < settled);
+    const drop = (rs) => { const paid = d3.sum(rs, (r) => r.PAID), got = d3.sum(rs, (r) => r.ADDRESS_EVER); return [paid, paid ? (paid - got) / paid : null]; };
+    return [...new Set(rows.map((r) => r.DAY))].sort().map((day) => {
+      const d = rows.filter((r) => r.DAY === day);
+      const [all_paid, all_drop] = drop(d), [j5_paid, j5_drop] = drop(d.filter((r) => r.ARM === 'J5')), [j6_paid, j6_drop] = drop(d.filter((r) => r.ARM === 'J6'));
+      return { day, after_release: day >= release, all_paid, all_drop, j5_paid, j5_drop: day >= release ? j5_drop : null, j6_paid, j6_drop: j6_paid >= 10 ? j6_drop : null };
+    });
+  },
+});
 dash.calc('gl_calls_month', {
   title: 'Goal 2: calls to Wiom after engineer assignment, now vs October',
   description: 'This month’s calls to Wiom so far and projected for the full month, the change against October on the same count, and what that means against the data science team’s October baseline of 5,239 and the goal of 2,000.',
@@ -3059,6 +3087,47 @@ dash.draw('gl_addr', (box) => {
   });
   box.insertBefore(glRelease(), box.querySelector('.gl-link'));
 });
+// Daily drop-off around the release: all payers (before and since), J5 and J6 since. Lower is better.
+const glReleaseChart = (d) => {
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const box = el('div', 'gl-rel-chart');
+  box.append(el('p', 'gl-rel-chart-title', 'Address drop-off per pay day (lower is better)'));
+  const rows = glData('gl_addr_release_daily');
+  if (rows.length < 2) { box.append(el('p', 'gl-rel-note', 'Not enough days to draw yet.')); return box; }
+  const p = d3.utcParse('%Y-%m-%d'), fs = d3.utcFormat('%-d %b');
+  const C = { all: '#A7A1B2', j5: '#5C5570', j6: '#D9008D', goal: '#008043' };
+  const W = 520, H = 190, m = { t: 12, r: 12, b: 24, l: 36 };
+  const x = d3.scaleUtc().domain(d3.extent(rows, (r) => p(r.day))).range([m.l, W - m.r]);
+  const vals = rows.flatMap((r) => [r.all_drop, r.j5_drop, r.j6_drop]).filter((v) => v != null);
+  const y = d3.scaleLinear().domain([0, Math.max(0.06, d3.max(vals) * 1.1)]).nice().range([H - m.b, m.t]);
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+    .attr('aria-label', `Daily share of payers with no address, ${fs(p(rows[0].day))} to ${fs(p(rows[rows.length - 1].day))}. J6 ${glPct(1 - d.j6_rate)} against J5 ${glPct(1 - d.j5_rate)} since release.`);
+  svg.append('g').attr('class', 'grid').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - m.l - m.r)).tickFormat('')).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.min(rows.length, 6)).tickFormat(fs).tickSizeOuter(0));
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat((v) => `${Math.round(v * 100)}%`)).call((g) => g.select('.domain').remove());
+  const goal = 1 - GL_BASE.addr_goal;
+  if (goal <= y.domain()[1]) {
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(goal)).attr('y2', y(goal)).attr('stroke', C.goal).attr('stroke-dasharray', '4 3');
+    svg.append('text').attr('x', W - m.r).attr('y', y(goal) - 4).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', C.goal).text(`Goal ${glPct(goal)}`);
+  }
+  const rx = x(p(d.release));
+  svg.append('line').attr('x1', rx).attr('x2', rx).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', C.j6).attr('stroke-dasharray', '2 3');
+  svg.append('text').attr('x', rx + 4).attr('y', m.t + 10).attr('font-size', 11).attr('fill', C.j6).text(`J6 released ${fs(p(d.release))}`);
+  const series = [['all_drop', C.all, 1.5, 'All payers'], ['j5_drop', C.j5, 2, 'J5 (old flow)'], ['j6_drop', C.j6, 2.5, 'J6 (new flow)']];
+  for (const [k, c, w, label] of series) {
+    const rs = rows.filter((r) => r[k] != null);
+    const line = d3.line().defined((r) => r[k] != null).x((r) => x(p(r.day))).y((r) => y(r[k]));
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', c).attr('stroke-width', w).attr('d', line);
+    const paidKey = k.replace('_drop', '_paid');
+    svg.append('g').selectAll('circle').data(rs).join('circle').attr('cx', (r) => x(p(r.day))).attr('cy', (r) => y(r[k])).attr('r', 3).attr('fill', c)
+      .append('title').text((r) => `${fs(p(r.day))} · ${label}: ${glPct(r[k])} no address (${glN(r[paidKey])} paid)`);
+  }
+  const lg = el('ul', 'st-legend');
+  for (const [, c, , label] of series) { const li = el('li'); const i = el('i'); i.style.background = c; li.append(i, document.createTextNode(label)); lg.append(li); }
+  box.append(lg);
+  box.append(el('p', 'gl-rel-note', `Each dot is one pay day; hover for the count. J6 starts on the first day with at least 10 J6 payers. It is still rolling out (${glN(rows[rows.length - 1].j6_paid)} payers on the latest day), so one missed address moves its daily dot by about ${glPct(1 / Math.max(1, rows[rows.length - 1].j6_paid), 1)}; read the totals above for the impact.`));
+  return box;
+};
 // "Feature released" block inside the Goal 1 card.
 const glRelease = () => {
   const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -3081,9 +3150,11 @@ const glRelease = () => {
   wrap.append(hero);
   const tiles = el('div', 'gl-rel-tiles');
   const tile = (k, v, sub, cls) => { const t = el('div', cls ? `gl-rel-tile ${cls}` : 'gl-rel-tile'); t.append(el('span', null, k), el('b', 'st-num', v), el('small', null, sub)); tiles.append(t); };
-  tile('J6 (new flow)', glPct(d.j6_rate), `${glN(d.j6_paid)} paid · ${glN(d.j6_miss)} no address`, 'new');
-  tile('J5 (old flow), same days', glPct(d.j5_rate), `${glN(d.j5_paid)} paid · ${glN(d.j5_miss)} no address`);
+  tile('Before · J5 (old flow), same days', glPct(d.j5_rate == null ? null : 1 - d.j5_rate), `no address · ${glN(d.j5_miss)} of ${glN(d.j5_paid)} paid`);
+  tiles.append(el('span', 'gl-rel-arrow', '→'));
+  tile('Now · J6 (new flow)', glPct(d.j6_rate == null ? null : 1 - d.j6_rate), `no address · ${glN(d.j6_miss)} of ${glN(d.j6_paid)} paid`, better ? 'new' : '');
   wrap.append(tiles);
+  wrap.append(glReleaseChart(d));
   const meta = el('dl', 'st-meta');
   const row = (k, v) => meta.append(el('dt', null, k), el('dd', 'st-num', v));
   row(`All payers, ${d.days} days before release`, `${glPct(d.before_rate)} of ${glN(d.before_paid)}`);
